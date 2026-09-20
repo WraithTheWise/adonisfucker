@@ -1,86 +1,65 @@
-local REnv = getrenv()
-local Hooks = {}
-local LocalClient = game.Players.LocalPlayer
-local StarterGui = game:GetService("StarterGui")
+if not game:IsLoaded() then game.Loaded:Wait(); end;
+if getgenv().adonis_bypass_loaded then return; end;
 
-local Hooks = {}
-Hooks.__index = Hooks
+local HookService = loadstring(game:HttpGet("https://raw.githubusercontent.com/00lxh/luna_xyz/refs/heads/main/src/utils/HookService.lua"))();
+local setthreadidentity = (setthreadidentity or function(identity: number) end);
 
--- Create a detour for `target` (the function you want to hook).
-function Hooks.new(target)
-    return setmetatable({
-        target   = target,
-        detour   = nil,
-        original = nil,
-        enabled  = false,
-    }, Hooks)
-end
+local checkcaller = (checkcaller or function() return false end);
+local cloneref = (cloneref or function(instance: any) return instance end);
 
--- Set the replacement function. Returns self so calls can chain.
-function Hooks:SetDetour(fn)
-    self.detour = fn
-    return self
-end
+local adonisDetected, adonisBypassed = false, false;
+local detected_func, kill_func = nil, nil;
 
--- Activate the hook. Captures and returns the original function so the
--- detour can call through via self.original(...).
-function Hooks:Enable()
-    if self.enabled then return self.original end
-    assert(self.detour, "Enable() called before SetDetour()")
-    self.original = hookfunction(self.target, self.detour)
-    self.enabled  = true
-    return self.original
-end
+local LP = cloneref(game:GetService("Players")).LocalPlayer;
+setthreadidentity(2);
 
--- Restore the original function.
-function Hooks:Disable()
-    if not self.enabled then return end
-    hookfunction(self.target, self.original)
-    self.enabled = false
-end
+for _, __v in getgc(true) do
 
--- Convenience: call the real (unhooked) function regardless of state.
-function Hooks:Original(...)
-    local fn = self.original or self.target
-    return fn(...)
-end
+	if typeof(__v) ~= "table" then continue; end;
 
-Hooks.CallOriginal = Hooks.Original
+	if rawget(__v, "Detected") and typeof(rawget(__v, "Detected")) == "function" then
+		adonisDetected = true; detected_func = rawget(__v, "Detected");
+	end;
 
-local function BypassAdonis()
-	local Query = {
-		--Hash = "605A34235509ABBB6946D10B499B526AC72774E441C3F9BAE4B63D321C6E759347D864CE879B39864743C0EEAC444FFF",
-		Constants = {" - On Xbox", " - On mobile", "_"},
-		IgnoreExecutor = true,
-	}
+	if rawget(__v, "Kill") and rawget(__v, "Variables") and rawget(__v, "Process") and typeof(rawget(__v, "Kill")) == "function" then
+		adonisDetected = true; kill_func = rawget(__v, "Kill");
+	end;
+end;
 
-	local Detected = filtergc("function", Query, true)
-	if not Detected then
-		return LocalClient:Kick("Adonis anticheat bypass failed to activate, please contact support.")
-	end
+if detected_func then
 
-	local iDetour = Hooks.new(REnv.debug.info)
-	local dDetour = Hooks.new(Detected)
+	local detected_func_hook; detected_func_hook = HookService:Hook(detected_func, function(...)
+		return true;
+	end);
+end;
 
-	local a, b, c, d, e, f = debug.info(Detected, "slanf")
-	local Detour = function(...)
-		local Args = {...}
-		if Args[1] == Detected and Args[2] == "slanf" then
-			return a, b, c, d, e, f
-		end
+if kill_func then
 
-		return iDetour:Original(...)
-	end
+	local kill_func_hook; kill_func_hook = HookService:Hook(kill_func, function(...)
+		return true;
+	end);
+end;
 
-	iDetour:SetDetour(Detour)
-	dDetour:SetDetour(function() return task.wait(9e10) end)
-	iDetour:Enable()
-	dDetour:Enable()
-end
-BypassAdonis()
+local debug_info_hook; debug_info_hook = HookService:Hook(getrenv().debug.info, function(...)
 
-StarterGui:SetCore("SendNotification", {
-	Title = "Bypassed";
-	Text = "Bypassed";
-	Duration = 5;
-})
+	local LevelOrFunc, Info = ...;
+
+	if detected_func and LevelOrFunc == detected_func then adonisBypassed = true; return coroutine.yield(coroutine.running()); end;
+	return debug_info_hook(...);
+end);
+
+setthreadidentity(7);
+
+local kick_func_hook; kick_func_hook = HookService:NameCallHook(LP, "kick", function(self, ...)
+
+	if adonisBypassed and not checkcaller() then return nil; end;
+
+	warn("Adonis Tried to kick")
+	kick_func_hook(self, ...);
+end);
+
+cloneref(game:GetService("StarterGui")):SetCore("SendNotification", {		
+	Title = "Adonis Bypassed"; Text = "By: 00._lxh"; Duration = 5; Button1 = "OK";
+});
+
+getgenv().adonis_bypass_loaded = true;
