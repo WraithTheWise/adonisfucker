@@ -1,40 +1,47 @@
 task.spawn(function()
-local g = getinfo or debug.getinfo
-local d = false
-local h = {}
-local x, y
-setthreadidentity(2)
-for i, v in getgc(true) do
-if typeof(v) == "table" then
-local a = rawget(v, "Detected")
-local b = rawget(v, "Kill")
-if typeof(a) == "function" and not x then
-x = a
-local o; o = hookfunction(x, function(c, f, n)
-if c ~= "_" then
-if d then
-end
-end
-return true
-end)
-table.insert(h, x)
-end
-if rawget(v, "Variables") and rawget(v, "Process") and typeof(b) == "function" and not y then
-y = b
-local o; o = hookfunction(y, function(f)
-if d then
-end
-end)
-table.insert(h, y)
-end
-end
-end
-local o; o = hookfunction(getrenv().debug.info, newcclosure(function(...)
-local a, f = ...
-if x and a == x then
-return coroutine.yield(coroutine.running())
-end
-return o(...)
-end))
-setthreadidentity(7)
+    pcall(function()
+        setthreadidentity(2)
+
+        local detected, detectedOriginal, kill
+
+        for _, v in getgc(true) do
+            if typeof(v) == "table" then
+                if not detected then
+                    local a = rawget(v, "Detected")
+                    if typeof(a) == "function" then
+                        detected = a
+                    end
+                end
+                if not kill and rawget(v, "Variables") and rawget(v, "Process") then
+                    local b = rawget(v, "Kill")
+                    if typeof(b) == "function" then
+                        kill = b
+                    end
+                end
+                if detected and kill then
+                    break
+                end
+            end
+        end
+
+        if detected then
+            detectedOriginal = hookfunction(detected, function()
+                return true
+            end)
+        end
+
+        if kill then
+            hookfunction(kill, function() end)
+        end
+
+        local realInfo = getrenv().debug.info
+        hookfunction(realInfo, newcclosure(function(f, ...)
+            if detected and f == detected and detectedOriginal then
+                return realInfo(detectedOriginal, ...)
+            end
+            return realInfo(f, ...)
+        end))
+
+        setthreadidentity(7)
+    end)
 end)
