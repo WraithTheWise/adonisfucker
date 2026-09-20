@@ -35,11 +35,12 @@ task.spawn(function()
         end
 
         local realInfo = getrenv().debug.info
-        hookfunction(realInfo, newcclosure(function(f, ...)
+        local infoOriginal
+        infoOriginal = hookfunction(realInfo, newcclosure(function(f, ...)
             if detected and f == detected and detectedOriginal then
-                return realInfo(detectedOriginal, ...)
+                return infoOriginal(detectedOriginal, ...)
             end
-            return realInfo(f, ...)
+            return infoOriginal(f, ...)
         end))
 
         setthreadidentity(7)
