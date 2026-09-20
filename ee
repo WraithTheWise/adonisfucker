@@ -1,39 +1,86 @@
-task.spawn(function()
-    setthreadidentity(2)
+local REnv = getrenv()
+local Hooks = {}
+local LocalClient = game.Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
 
-    pcall(function()
-        local detected, kill
+local Hooks = {}
+Hooks.__index = Hooks
 
-        for _, v in getgc(true) do
-            if typeof(v) == "table" then
-                if not detected then
-                    local a = rawget(v, "Detected")
-                    if typeof(a) == "function" then
-                        detected = a
-                    end
-                end
-                if not kill and rawget(v, "Variables") and rawget(v, "Process") then
-                    local b = rawget(v, "Kill")
-                    if typeof(b) == "function" then
-                        kill = b
-                    end
-                end
-                if detected and kill then
-                    break
-                end
-            end
-        end
+-- Create a detour for `target` (the function you want to hook).
+function Hooks.new(target)
+    return setmetatable({
+        target   = target,
+        detour   = nil,
+        original = nil,
+        enabled  = false,
+    }, Hooks)
+end
 
-        if detected then
-            hookfunction(detected, function()
-                return true
-            end)
-        end
+-- Set the replacement function. Returns self so calls can chain.
+function Hooks:SetDetour(fn)
+    self.detour = fn
+    return self
+end
 
-        if kill then
-            hookfunction(kill, function() end)
-        end
-    end)
+-- Activate the hook. Captures and returns the original function so the
+-- detour can call through via self.original(...).
+function Hooks:Enable()
+    if self.enabled then return self.original end
+    assert(self.detour, "Enable() called before SetDetour()")
+    self.original = hookfunction(self.target, self.detour)
+    self.enabled  = true
+    return self.original
+end
 
-    setthreadidentity(7)
-end)
+-- Restore the original function.
+function Hooks:Disable()
+    if not self.enabled then return end
+    hookfunction(self.target, self.original)
+    self.enabled = false
+end
+
+-- Convenience: call the real (unhooked) function regardless of state.
+function Hooks:Original(...)
+    local fn = self.original or self.target
+    return fn(...)
+end
+
+Hooks.CallOriginal = Hooks.Original
+
+local function BypassAdonis()
+	local Query = {
+		--Hash = "605A34235509ABBB6946D10B499B526AC72774E441C3F9BAE4B63D321C6E759347D864CE879B39864743C0EEAC444FFF",
+		Constants = {" - On Xbox", " - On mobile", "_"},
+		IgnoreExecutor = true,
+	}
+
+	local Detected = filtergc("function", Query, true)
+	if not Detected then
+		return LocalClient:Kick("Adonis anticheat bypass failed to activate, please contact support.")
+	end
+
+	local iDetour = Hooks.new(REnv.debug.info)
+	local dDetour = Hooks.new(Detected)
+
+	local a, b, c, d, e, f = debug.info(Detected, "slanf")
+	local Detour = function(...)
+		local Args = {...}
+		if Args[1] == Detected and Args[2] == "slanf" then
+			return a, b, c, d, e, f
+		end
+
+		return iDetour:Original(...)
+	end
+
+	iDetour:SetDetour(Detour)
+	dDetour:SetDetour(function() return task.wait(9e10) end)
+	iDetour:Enable()
+	dDetour:Enable()
+end
+BypassAdonis()
+
+StarterGui:SetCore("SendNotification", {
+	Title = "Bypassed";
+	Text = "Bypassed";
+	Duration = 5;
+})
