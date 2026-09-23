@@ -58,8 +58,4 @@ local kick_func_hook; kick_func_hook = HookService:NameCallHook(LP, "kick", func
 	kick_func_hook(self, ...);
 end);
 
-cloneref(game:GetService("StarterGui")):SetCore("SendNotification", {		
-	Title = "Adonis Bypassed"; Text = "By: 00._lxh"; Duration = 5; Button1 = "OK";
-});
-
 getgenv().adonis_bypass_loaded = true;
